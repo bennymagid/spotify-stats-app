@@ -64,10 +64,35 @@ export class SpotifyApi {
       });
       return response.data;
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 401) {
-        SpotifyAuth.logout();
-        throw new Error('Authentication expired. Please log in again.');
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+        
+        console.error('Spotify API Error:', {
+          status,
+          url: `${API_BASE_URL}${url}`,
+          error: errorData
+        });
+
+        if (status === 401) {
+          SpotifyAuth.logout();
+          throw new Error('Authentication expired. Please log in again.');
+        }
+        
+        if (status === 403) {
+          if (errorData?.error?.message?.includes('Development mode')) {
+            throw new Error('Spotify app is in Development Mode. You need to add your account to the app\'s user list in the Spotify Developer Dashboard, or request a quota extension.');
+          }
+          throw new Error(`Access forbidden (403): ${errorData?.error?.message || 'Your Spotify app may be in Development Mode. Check your app settings in the Spotify Developer Dashboard.'}`);
+        }
+        
+        if (status === 429) {
+          throw new Error('Rate limit exceeded. Please wait a moment and try again.');
+        }
+        
+        throw new Error(`Spotify API error (${status}): ${errorData?.error?.message || error.message}`);
       }
+      
       throw error;
     }
   }

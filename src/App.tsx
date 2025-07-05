@@ -86,8 +86,31 @@ function App() {
             )}
             
             {error && (
-              <div style={{ color: 'red', margin: '10px 0' }}>
-                Error: {error}
+              <div style={{ 
+                color: 'red', 
+                margin: '10px 0', 
+                padding: '15px', 
+                border: '1px solid #ffcdd2', 
+                borderRadius: '8px', 
+                backgroundColor: '#ffebee',
+                textAlign: 'left',
+                maxWidth: '600px',
+                marginLeft: 'auto',
+                marginRight: 'auto'
+              }}>
+                <strong>Error:</strong> {error}
+                {error.includes('Development Mode') && (
+                  <div style={{ marginTop: '10px', fontSize: '14px' }}>
+                    <p><strong>How to fix:</strong></p>
+                    <ol style={{ textAlign: 'left', paddingLeft: '20px' }}>
+                      <li>Go to <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener noreferrer">Spotify Developer Dashboard</a></li>
+                      <li>Open your app settings</li>
+                      <li>Go to "Users and Access"</li>
+                      <li>Add your Spotify email/username to the user list</li>
+                      <li>Or request a quota extension to move out of Development Mode</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             )}
             
