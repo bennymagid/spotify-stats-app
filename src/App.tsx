@@ -179,6 +179,36 @@ function App() {
             {user && (
               <div>
                 <h2>Welcome, {user.display_name}!</h2>
+                {SpotifyAuth.needsReauth() && (
+                  <div style={{
+                    backgroundColor: '#fff3e0',
+                    border: '1px solid #ff9800',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    margin: '15px 0',
+                    textAlign: 'center'
+                  }}>
+                    <p style={{ margin: '0 0 10px 0', color: '#e65100' }}>
+                      ⚠️ <strong>Enhanced Features Available!</strong><br />
+                      Update your permissions to enable in-app music playback.
+                    </p>
+                    <button
+                      onClick={() => SpotifyAuth.forceReauth()}
+                      style={{
+                        backgroundColor: '#1db954',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '15px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      Enable Player Features
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             

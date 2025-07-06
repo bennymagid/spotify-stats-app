@@ -19,9 +19,16 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
   const [duration, setDuration] = useState(0);
   const [deviceId, setDeviceId] = useState<string>('');
   const [isPremium, setIsPremium] = useState<boolean | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
   const intervalRef = useRef<number>(0);
 
   useEffect(() => {
+    // Check if we need re-authentication for streaming
+    if (SpotifyAuth.needsReauth()) {
+      setNeedsReauth(true);
+      return;
+    }
+
     const initializePlayer = () => {
       if (!window.Spotify || !window.Spotify.Player) {
         console.log('Spotify SDK not loaded yet');
@@ -30,6 +37,12 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
 
       const token = SpotifyAuth.getAccessToken();
       if (!token) return;
+
+      // Double-check streaming scopes before initializing player
+      if (!SpotifyAuth.hasStreamingScopes()) {
+        setNeedsReauth(true);
+        return;
+      }
 
       const spotifyPlayer = new window.Spotify.Player({
         name: 'Spotify Stats Player',
@@ -132,7 +145,7 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
       const token = SpotifyAuth.getAccessToken();
       if (!token) return;
 
-      await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -142,6 +155,18 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
           uris: [uri],
         }),
       });
+
+      if (response.status === 401) {
+        // Token lacks streaming permissions or is invalid
+        console.error('401 Unauthorized - need re-authentication for playback');
+        setNeedsReauth(true);
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Playback error:', response.status, errorData);
+      }
     } catch (error) {
       console.error('Error playing track:', error);
     }
@@ -158,6 +183,38 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
     const seconds = Math.floor((ms % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  if (needsReauth) {
+    return (
+      <div style={{ 
+        padding: '15px', 
+        backgroundColor: '#ffebee', 
+        border: '1px solid #f44336', 
+        borderRadius: '8px',
+        marginBottom: '20px',
+        textAlign: 'center'
+      }}>
+        <p style={{ margin: '0 0 15px 0', color: '#c62828' }}>
+          🔄 <strong>Player Permissions Update Required</strong><br />
+          Your login needs additional permissions for music playback.
+        </p>
+        <button
+          onClick={() => SpotifyAuth.forceReauth()}
+          style={{
+            backgroundColor: '#1db954',
+            color: 'white',
+            border: 'none',
+            padding: '10px 20px',
+            borderRadius: '20px',
+            cursor: 'pointer',
+            fontWeight: 'bold'
+          }}
+        >
+          Update Permissions
+        </button>
+      </div>
+    );
+  }
 
   if (isPremium === false) {
     return (

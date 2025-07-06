@@ -77,10 +77,11 @@ export class SpotifyAuth {
       throw new Error(data.error_description || 'Token exchange failed');
     }
 
-    // Store tokens
+    // Store tokens and scopes
     localStorage.setItem('spotify_access_token', data.access_token);
     localStorage.setItem('spotify_refresh_token', data.refresh_token);
     localStorage.setItem('spotify_expires_at', (Date.now() + data.expires_in * 1000).toString());
+    localStorage.setItem('spotify_scopes', data.scope || this.SCOPES.join(' '));
     
     // Clean up
     localStorage.removeItem('spotify_code_verifier');
@@ -110,5 +111,32 @@ export class SpotifyAuth {
     localStorage.removeItem('spotify_access_token');
     localStorage.removeItem('spotify_refresh_token');
     localStorage.removeItem('spotify_expires_at');
+    localStorage.removeItem('spotify_scopes');
+  }
+
+  static getCurrentScopes(): string[] {
+    const scopes = localStorage.getItem('spotify_scopes');
+    return scopes ? scopes.split(' ') : [];
+  }
+
+  static hasRequiredScopes(requiredScopes: string[]): boolean {
+    const currentScopes = this.getCurrentScopes();
+    return requiredScopes.every(scope => currentScopes.includes(scope));
+  }
+
+  static hasStreamingScopes(): boolean {
+    return this.hasRequiredScopes(['streaming', 'user-read-playback-state', 'user-modify-playback-state']);
+  }
+
+  static async forceReauth(): Promise<void> {
+    // Clear existing tokens to force fresh authentication
+    this.logout();
+    // Initiate new auth flow
+    await this.initiateAuth();
+  }
+
+  static needsReauth(): boolean {
+    // Check if we're authenticated but missing streaming scopes
+    return this.isAuthenticated() && !this.hasStreamingScopes();
   }
 }
