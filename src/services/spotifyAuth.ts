@@ -27,6 +27,9 @@ export class SpotifyAuth {
     'user-read-recently-played',
     'user-top-read',
     'user-read-currently-playing',
+    'streaming',
+    'user-read-playback-state',
+    'user-modify-playback-state',
   ];
 
   static async initiateAuth(): Promise<void> {

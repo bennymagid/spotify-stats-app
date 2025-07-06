@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { SpotifyAuth } from './services/spotifyAuth'
 import { SpotifyApi, type SpotifyTrack } from './services/spotifyApi'
 import SpotifyCallback from './components/SpotifyCallback'
+import SpotifyPlayerComponent from './components/SpotifyPlayer'
+import ListeningAnalytics from './components/ListeningAnalytics'
 import './App.css'
 
 function App() {
@@ -11,7 +13,8 @@ function App() {
   const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
-  const [activeTab, setActiveTab] = useState<'recent' | 'top'>('recent')
+  const [activeTab, setActiveTab] = useState<'recent' | 'top' | 'analytics'>('recent')
+  const [selectedTrackUri, setSelectedTrackUri] = useState<string>('')
 
   // Helper function to get artist stats
   const getArtistStats = (tracks: SpotifyTrack[]) => {
@@ -105,16 +108,73 @@ function App() {
         ) : (
           <div>
             <div style={{ marginBottom: '20px' }}>
-              <button onClick={loadRecentTracks} disabled={loading}>
+              <button 
+                onClick={loadRecentTracks} 
+                disabled={loading}
+                style={{ 
+                  backgroundColor: activeTab === 'recent' ? '#1db954' : '#f0f0f0',
+                  color: activeTab === 'recent' ? 'white' : 'black',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  marginRight: '10px'
+                }}
+              >
                 {loading && activeTab === 'recent' ? 'Loading...' : 'Recent Tracks'}
               </button>
-              <button onClick={loadTopTracks} disabled={loading} style={{ marginLeft: '10px' }}>
+              <button 
+                onClick={loadTopTracks} 
+                disabled={loading} 
+                style={{ 
+                  backgroundColor: activeTab === 'top' ? '#1db954' : '#f0f0f0',
+                  color: activeTab === 'top' ? 'white' : 'black',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  marginRight: '10px'
+                }}
+              >
                 {loading && activeTab === 'top' ? 'Loading...' : 'Top Tracks'}
               </button>
-              <button onClick={handleLogout} style={{ marginLeft: '10px' }}>
+              <button 
+                onClick={() => setActiveTab('analytics')} 
+                disabled={loading}
+                style={{ 
+                  backgroundColor: activeTab === 'analytics' ? '#1db954' : '#f0f0f0',
+                  color: activeTab === 'analytics' ? 'white' : 'black',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  marginRight: '10px'
+                }}
+              >
+                Analytics
+              </button>
+              <button 
+                onClick={handleLogout} 
+                style={{ 
+                  backgroundColor: '#ff4444',
+                  color: 'white',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '20px',
+                  cursor: 'pointer'
+                }}
+              >
                 Logout
               </button>
             </div>
+            
+            {/* Spotify Player */}
+            {isAuthenticated && (
+              <SpotifyPlayerComponent 
+                trackUri={selectedTrackUri}
+                onTrackChange={(track) => console.log('Now playing:', track)}
+              />
+            )}
             
             {user && (
               <div>
@@ -207,19 +267,36 @@ function App() {
                         <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
                           Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                         </p>
-                        <a 
-                          href={track.external_urls.spotify} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ 
-                            color: '#1db954', 
-                            textDecoration: 'none', 
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          Open in Spotify ↗
-                        </a>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
+                          <button
+                            onClick={() => setSelectedTrackUri(`spotify:track:${track.id}`)}
+                            style={{
+                              backgroundColor: '#1db954',
+                              color: 'white',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: '15px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ▶️ Play
+                          </button>
+                          <a 
+                            href={track.external_urls.spotify} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                              color: '#1db954', 
+                              textDecoration: 'none', 
+                              fontSize: '14px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Open in Spotify ↗
+                          </a>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -296,24 +373,49 @@ function App() {
                         <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
                           Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                         </p>
-                        <a 
-                          href={track.external_urls.spotify} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ 
-                            color: '#1db954', 
-                            textDecoration: 'none', 
-                            fontSize: '14px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          Open in Spotify ↗
-                        </a>
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
+                          <button
+                            onClick={() => setSelectedTrackUri(`spotify:track:${track.id}`)}
+                            style={{
+                              backgroundColor: '#1db954',
+                              color: 'white',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: '15px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ▶️ Play
+                          </button>
+                          <a 
+                            href={track.external_urls.spotify} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            style={{ 
+                              color: '#1db954', 
+                              textDecoration: 'none', 
+                              fontSize: '14px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Open in Spotify ↗
+                          </a>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* Analytics Tab */}
+            {activeTab === 'analytics' && (
+              <ListeningAnalytics 
+                recentTracks={recentTracks} 
+                topTracks={topTracks} 
+              />
             )}
           </div>
         )}
