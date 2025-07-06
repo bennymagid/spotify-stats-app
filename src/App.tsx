@@ -251,12 +251,12 @@ function App() {
                 
                 {/* Artist Stats for Recent Tracks */}
                 <div style={{ 
-                  backgroundColor: '#e8f5e8', 
+                  backgroundColor: '#2a2a2a', 
                   padding: '15px', 
                   borderRadius: '8px', 
                   marginBottom: '20px' 
                 }}>
-                  <h4 style={{ margin: '0 0 10px 0' }}>🎵 Most Played Artists (Recent)</h4>
+                  <h4 style={{ margin: '0 0 10px 0', color: 'white' }}>🎵 Most Played Artists (Recent)</h4>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     {getArtistStats(recentTracks).map(({ name, count }) => (
                       <span key={name} style={{ 
@@ -274,10 +274,10 @@ function App() {
                 <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
                   {recentTracks.map((track, index) => (
                     <div key={`${track.id}-${index}`} style={{ 
-                      border: '1px solid #ddd', 
+                      border: '1px solid #444', 
                       padding: '15px', 
                       borderRadius: '8px',
-                      backgroundColor: '#f9f9f9',
+                      backgroundColor: '#2a2a2a',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '15px'
@@ -290,11 +290,11 @@ function App() {
                         />
                       )}
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: '0 0 5px 0' }}>{track.name}</h4>
-                        <p style={{ margin: '0 0 5px 0', color: '#666' }}>
+                        <h4 style={{ margin: '0 0 5px 0', color: 'white' }}>{track.name}</h4>
+                        <p style={{ margin: '0 0 5px 0', color: '#ccc' }}>
                           by {track.artists.map(a => a.name).join(', ')}
                         </p>
-                        <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
+                        <p style={{ margin: '0', color: '#999', fontSize: '14px' }}>
                           Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                         </p>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
@@ -304,7 +304,7 @@ function App() {
                               setSelectedTrackUri(trackUri);
                             }}
                             style={{
-                              backgroundColor: '#1db954',
+                              backgroundColor: '#404040',
                               color: 'white',
                               border: 'none',
                               padding: '6px 12px',
@@ -347,12 +347,12 @@ function App() {
                 
                 {/* Artist Stats for Top Tracks */}
                 <div style={{ 
-                  backgroundColor: '#fff3e0', 
+                  backgroundColor: '#2a2a2a', 
                   padding: '15px', 
                   borderRadius: '8px', 
                   marginBottom: '20px' 
                 }}>
-                  <h4 style={{ margin: '0 0 10px 0' }}>🏆 Your Favorite Artists</h4>
+                  <h4 style={{ margin: '0 0 10px 0', color: 'white' }}>🏆 Your Favorite Artists</h4>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                     {getArtistStats(topTracks).map(({ name, count }) => (
                       <span key={name} style={{ 
@@ -370,10 +370,10 @@ function App() {
                 <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
                   {topTracks.map((track, index) => (
                     <div key={track.id} style={{ 
-                      border: '1px solid #ddd', 
+                      border: '1px solid #444', 
                       padding: '15px', 
                       borderRadius: '8px',
-                      backgroundColor: '#f9f9f9',
+                      backgroundColor: '#2a2a2a',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '15px'
@@ -399,11 +399,11 @@ function App() {
                         />
                       )}
                       <div style={{ flex: 1 }}>
-                        <h4 style={{ margin: '0 0 5px 0' }}>{track.name}</h4>
-                        <p style={{ margin: '0 0 5px 0', color: '#666' }}>
+                        <h4 style={{ margin: '0 0 5px 0', color: 'white' }}>{track.name}</h4>
+                        <p style={{ margin: '0 0 5px 0', color: '#ccc' }}>
                           by {track.artists.map(a => a.name).join(', ')}
                         </p>
-                        <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
+                        <p style={{ margin: '0', color: '#999', fontSize: '14px' }}>
                           Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                         </p>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
@@ -413,7 +413,7 @@ function App() {
                               setSelectedTrackUri(trackUri);
                             }}
                             style={{
-                              backgroundColor: '#1db954',
+                              backgroundColor: '#404040',
                               color: 'white',
                               border: 'none',
                               padding: '6px 12px',

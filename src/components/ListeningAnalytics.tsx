@@ -45,38 +45,38 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
     loadTimeRangeData();
   }, [topTracks]);
 
-  // Top artists over time evolution
+  // Top artists over time evolution (monthly)
   const artistsOverTimeData = useMemo(() => {
     if (!timeRangeData) return [];
 
-    const periods = [
-      { name: 'Last 4 weeks', data: timeRangeData.short_term.artists },
-      { name: 'Last 6 months', data: timeRangeData.medium_term.artists },
-      { name: 'All time', data: timeRangeData.long_term.artists }
-    ];
+    const monthlyData = SpotifyApi.generateMonthlyData(
+      timeRangeData.short_term.artists,
+      timeRangeData.medium_term.artists,
+      timeRangeData.long_term.artists
+    );
 
-    // Get top 5 artists overall
-    const allArtists = [...timeRangeData.long_term.artists.slice(0, 5)];
+    // Get top 5 artists overall from long term data
+    const topArtists = timeRangeData.long_term.artists.slice(0, 5);
     
-    return periods.map(period => {
-      const periodData: any = { period: period.name };
-      allArtists.forEach((artist) => {
-        const artistRank = period.data.findIndex(a => a.name === artist.name);
-        periodData[artist.name] = artistRank >= 0 ? artistRank + 1 : null;
+    return monthlyData.map(({ month, data }) => {
+      const monthData: any = { month };
+      topArtists.forEach((artist) => {
+        const artistRank = data.findIndex(a => a.name === artist.name);
+        monthData[artist.name] = artistRank >= 0 ? artistRank + 1 : null;
       });
-      return periodData;
+      return monthData;
     });
   }, [timeRangeData]);
 
-  // Top genres over time (using artist genres)
+  // Top genres over time (monthly, using artist genres)
   const genresOverTimeData = useMemo(() => {
     if (!timeRangeData) return [];
 
-    const periods = [
-      { name: 'Last 4 weeks', data: timeRangeData.short_term.artists },
-      { name: 'Last 6 months', data: timeRangeData.medium_term.artists },
-      { name: 'All time', data: timeRangeData.long_term.artists }
-    ];
+    const monthlyData = SpotifyApi.generateMonthlyData(
+      timeRangeData.short_term.artists,
+      timeRangeData.medium_term.artists,
+      timeRangeData.long_term.artists
+    );
 
     // Get top 5 genres from all artists
     const allGenres = new Set<string>();
@@ -85,33 +85,40 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
     });
     const topGenres = Array.from(allGenres).slice(0, 5);
 
-    return periods.map(period => {
-      const periodData: any = { period: period.name };
+    return monthlyData.map(({ month, data }) => {
+      const monthData: any = { month };
       topGenres.forEach(genre => {
-        const count = period.data.reduce((acc, artist) => {
+        const count = data.reduce((acc, artist) => {
           return acc + (artist.genres.includes(genre) ? 1 : 0);
         }, 0);
-        periodData[genre] = count;
+        monthData[genre] = count;
       });
-      return periodData;
+      return monthData;
     });
   }, [timeRangeData]);
 
-  // Minutes listened over time
+  // Minutes listened over time (monthly)
   const minutesListenedData = useMemo(() => {
     if (!timeRangeData) return [];
 
-    const periods = [
-      { name: 'Last 4 weeks', tracks: timeRangeData.short_term.tracks },
-      { name: 'Last 6 months', tracks: timeRangeData.medium_term.tracks },
-      { name: 'All time', tracks: timeRangeData.long_term.tracks }
-    ];
+    const monthlyData = SpotifyApi.generateMonthlyData(
+      timeRangeData.short_term.tracks,
+      timeRangeData.medium_term.tracks,
+      timeRangeData.long_term.tracks
+    );
 
-    return periods.map(period => {
-      const totalMinutes = period.tracks.reduce((acc, track) => acc + track.duration_ms, 0) / 60000;
+    return monthlyData.map(({ month, data }) => {
+      // Estimate monthly listening based on top tracks
+      // This is an approximation since we don't have actual play counts
+      const estimatedMinutes = data.reduce((acc, track, index) => {
+        // Weight by position (higher ranked = more plays)
+        const weight = Math.max(1, 10 - index);
+        return acc + (track.duration_ms * weight) / 60000;
+      }, 0);
+      
       return {
-        period: period.name,
-        minutes: Math.round(totalMinutes)
+        month,
+        minutes: Math.round(estimatedMinutes)
       };
     });
   }, [timeRangeData]);
@@ -140,16 +147,22 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
       <div style={{ marginBottom: '40px' }}>
         <h3>Top Genres Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          How your music taste evolves across different time periods
+          Monthly evolution of your music taste (estimated from available data)
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
             <LineChart data={genresOverTimeData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
+              <XAxis 
+                dataKey="month" 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                fontSize={12}
+              />
               <YAxis />
               <Tooltip />
-              {genresOverTimeData.length > 0 && Object.keys(genresOverTimeData[0]).filter(key => key !== 'period').map((genre, index) => (
+              {genresOverTimeData.length > 0 && Object.keys(genresOverTimeData[0]).filter(key => key !== 'month').map((genre, index) => (
                 <Line 
                   key={genre}
                   type="monotone" 
@@ -167,16 +180,22 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
       <div style={{ marginBottom: '40px' }}>
         <h3>Top Artists Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          Artist ranking evolution (lower is better)
+          Monthly artist ranking evolution (lower rank number = more popular)
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
             <LineChart data={artistsOverTimeData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
+              <XAxis 
+                dataKey="month" 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                fontSize={12}
+              />
               <YAxis reversed domain={[1, 50]} />
               <Tooltip />
-              {artistsOverTimeData.length > 0 && Object.keys(artistsOverTimeData[0]).filter(key => key !== 'period').map((artist, index) => (
+              {artistsOverTimeData.length > 0 && Object.keys(artistsOverTimeData[0]).filter(key => key !== 'month').map((artist, index) => (
                 <Line 
                   key={artist}
                   type="monotone" 
@@ -195,13 +214,19 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
       <div style={{ marginBottom: '40px' }}>
         <h3>Minutes Listened Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          Your listening volume across different time periods
+          Monthly estimated listening volume (based on track popularity and duration)
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
             <BarChart data={minutesListenedData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="period" />
+              <XAxis 
+                dataKey="month" 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                fontSize={12}
+              />
               <YAxis />
               <Tooltip />
               <Bar dataKey="minutes" fill="#1db954" />
