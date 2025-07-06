@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { SpotifyAuth } from './services/spotifyAuth'
-import { SpotifyApi, type SpotifyTrack, type SpotifyAudioFeatures } from './services/spotifyApi'
+import { SpotifyApi, type SpotifyTrack } from './services/spotifyApi'
 import SpotifyCallback from './components/SpotifyCallback'
 import './App.css'
 
@@ -8,9 +8,25 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [recentTracks, setRecentTracks] = useState<SpotifyTrack[]>([])
-  const [trackFeatures, setTrackFeatures] = useState<SpotifyAudioFeatures[]>([])
+  const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
+  const [activeTab, setActiveTab] = useState<'recent' | 'top'>('recent')
+
+  // Helper function to get artist stats
+  const getArtistStats = (tracks: SpotifyTrack[]) => {
+    const artistCounts = tracks.reduce((acc, track) => {
+      track.artists.forEach(artist => {
+        acc[artist.name] = (acc[artist.name] || 0) + 1
+      })
+      return acc
+    }, {} as Record<string, number>)
+    
+    return Object.entries(artistCounts)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }))
+  }
 
   useEffect(() => {
     setIsAuthenticated(SpotifyAuth.isAuthenticated())
@@ -29,25 +45,43 @@ function App() {
     setIsAuthenticated(false)
     setUser(null)
     setRecentTracks([])
-    setTrackFeatures([])
+    setTopTracks([])
   }
 
-  const loadUserData = async () => {
+  const loadRecentTracks = async () => {
     setLoading(true)
     setError('')
     try {
-      const userData = await SpotifyApi.getCurrentUser()
-      setUser(userData)
+      if (!user) {
+        const userData = await SpotifyApi.getCurrentUser()
+        setUser(userData)
+      }
       
-      const recentlyPlayed = await SpotifyApi.getRecentlyPlayed(10)
+      const recentlyPlayed = await SpotifyApi.getRecentlyPlayed(20)
       const tracks = recentlyPlayed.map(item => item.track)
       setRecentTracks(tracks)
-      
-      const trackIds = tracks.map(track => track.id)
-      const features = await SpotifyApi.getAudioFeatures(trackIds)
-      setTrackFeatures(features)
+      setActiveTab('recent')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data')
+      setError(err instanceof Error ? err.message : 'Failed to load recent tracks')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadTopTracks = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      if (!user) {
+        const userData = await SpotifyApi.getCurrentUser()
+        setUser(userData)
+      }
+      
+      const tracks = await SpotifyApi.getTopTracks('medium_term', 20)
+      setTopTracks(tracks)
+      setActiveTab('top')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load top tracks')
     } finally {
       setLoading(false)
     }
@@ -71,8 +105,11 @@ function App() {
         ) : (
           <div>
             <div style={{ marginBottom: '20px' }}>
-              <button onClick={loadUserData} disabled={loading}>
-                {loading ? 'Loading...' : 'Load My Recent Tracks'}
+              <button onClick={loadRecentTracks} disabled={loading}>
+                {loading && activeTab === 'recent' ? 'Loading...' : 'Recent Tracks'}
+              </button>
+              <button onClick={loadTopTracks} disabled={loading} style={{ marginLeft: '10px' }}>
+                {loading && activeTab === 'top' ? 'Loading...' : 'Top Tracks'}
               </button>
               <button onClick={handleLogout} style={{ marginLeft: '10px' }}>
                 Logout
@@ -114,39 +151,167 @@ function App() {
               </div>
             )}
             
-            {recentTracks.length > 0 && (
+            {/* Recent Tracks */}
+            {activeTab === 'recent' && recentTracks.length > 0 && (
               <div>
-                <h3>Your Recent Tracks with Audio Features:</h3>
-                <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
-                  {recentTracks.map((track, index) => {
-                    const features = trackFeatures[index]
-                    return (
-                      <div key={track.id} style={{ 
-                        border: '1px solid #ddd', 
-                        padding: '15px', 
-                        borderRadius: '8px',
-                        backgroundColor: '#f9f9f9'
+                <h3>Your Recent Tracks</h3>
+                <p style={{ color: '#666', marginBottom: '20px' }}>
+                  Last {recentTracks.length} tracks you've listened to
+                </p>
+                
+                {/* Artist Stats for Recent Tracks */}
+                <div style={{ 
+                  backgroundColor: '#e8f5e8', 
+                  padding: '15px', 
+                  borderRadius: '8px', 
+                  marginBottom: '20px' 
+                }}>
+                  <h4 style={{ margin: '0 0 10px 0' }}>🎵 Most Played Artists (Recent)</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {getArtistStats(recentTracks).map(({ name, count }) => (
+                      <span key={name} style={{ 
+                        backgroundColor: '#1db954', 
+                        color: 'white', 
+                        padding: '5px 10px', 
+                        borderRadius: '15px', 
+                        fontSize: '14px' 
                       }}>
-                        <h4>{track.name}</h4>
-                        <p>by {track.artists.map(a => a.name).join(', ')}</p>
-                        <p>Album: {track.album.name}</p>
-                        
-                        {features && (
-                          <div style={{ marginTop: '10px' }}>
-                            <h5>Audio Features:</h5>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '10px' }}>
-                              <div>Danceability: {(features.danceability * 100).toFixed(1)}%</div>
-                              <div>Energy: {(features.energy * 100).toFixed(1)}%</div>
-                              <div>Valence: {(features.valence * 100).toFixed(1)}%</div>
-                              <div>Tempo: {features.tempo.toFixed(0)} BPM</div>
-                              <div>Acousticness: {(features.acousticness * 100).toFixed(1)}%</div>
-                              <div>Instrumentalness: {(features.instrumentalness * 100).toFixed(1)}%</div>
-                            </div>
-                          </div>
-                        )}
+                        {name} ({count})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+                  {recentTracks.map((track, index) => (
+                    <div key={`${track.id}-${index}`} style={{ 
+                      border: '1px solid #ddd', 
+                      padding: '15px', 
+                      borderRadius: '8px',
+                      backgroundColor: '#f9f9f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '15px'
+                    }}>
+                      {track.album.images[0] && (
+                        <img 
+                          src={track.album.images[0].url} 
+                          alt={track.album.name}
+                          style={{ width: '60px', height: '60px', borderRadius: '4px' }}
+                        />
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: '0 0 5px 0' }}>{track.name}</h4>
+                        <p style={{ margin: '0 0 5px 0', color: '#666' }}>
+                          by {track.artists.map(a => a.name).join(', ')}
+                        </p>
+                        <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
+                          Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                        </p>
+                        <a 
+                          href={track.external_urls.spotify} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ 
+                            color: '#1db954', 
+                            textDecoration: 'none', 
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Open in Spotify ↗
+                        </a>
                       </div>
-                    )
-                  })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Tracks */}
+            {activeTab === 'top' && topTracks.length > 0 && (
+              <div>
+                <h3>Your Top Tracks</h3>
+                <p style={{ color: '#666', marginBottom: '20px' }}>
+                  Your most played tracks over the last 6 months
+                </p>
+                
+                {/* Artist Stats for Top Tracks */}
+                <div style={{ 
+                  backgroundColor: '#fff3e0', 
+                  padding: '15px', 
+                  borderRadius: '8px', 
+                  marginBottom: '20px' 
+                }}>
+                  <h4 style={{ margin: '0 0 10px 0' }}>🏆 Your Favorite Artists</h4>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                    {getArtistStats(topTracks).map(({ name, count }) => (
+                      <span key={name} style={{ 
+                        backgroundColor: '#ff9800', 
+                        color: 'white', 
+                        padding: '5px 10px', 
+                        borderRadius: '15px', 
+                        fontSize: '14px' 
+                      }}>
+                        {name} ({count})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gap: '15px', marginTop: '20px' }}>
+                  {topTracks.map((track, index) => (
+                    <div key={track.id} style={{ 
+                      border: '1px solid #ddd', 
+                      padding: '15px', 
+                      borderRadius: '8px',
+                      backgroundColor: '#f9f9f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '15px'
+                    }}>
+                      <div style={{ 
+                        backgroundColor: '#1db954', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        width: '30px', 
+                        height: '30px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        fontWeight: 'bold'
+                      }}>
+                        {index + 1}
+                      </div>
+                      {track.album.images[0] && (
+                        <img 
+                          src={track.album.images[0].url} 
+                          alt={track.album.name}
+                          style={{ width: '60px', height: '60px', borderRadius: '4px' }}
+                        />
+                      )}
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: '0 0 5px 0' }}>{track.name}</h4>
+                        <p style={{ margin: '0 0 5px 0', color: '#666' }}>
+                          by {track.artists.map(a => a.name).join(', ')}
+                        </p>
+                        <p style={{ margin: '0', color: '#888', fontSize: '14px' }}>
+                          Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
+                        </p>
+                        <a 
+                          href={track.external_urls.spotify} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ 
+                            color: '#1db954', 
+                            textDecoration: 'none', 
+                            fontSize: '14px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          Open in Spotify ↗
+                        </a>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
