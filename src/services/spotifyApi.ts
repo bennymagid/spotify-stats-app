@@ -175,57 +175,6 @@ export class SpotifyApi {
     };
   }
 
-  static generateMonthlyData<T extends { name: string }>(
-    shortTerm: T[], 
-    mediumTerm: T[], 
-    longTerm: T[]
-  ): Array<{ month: string; data: T[] }> {
-    const now = new Date();
-    const months = [];
-    
-    // Generate last 12 months
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthName = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-      
-      let data: T[];
-      if (i === 0) {
-        // Current month - use short term data
-        data = shortTerm.slice(0, 10);
-      } else if (i <= 1) {
-        // Last 1-2 months - blend short and medium term
-        data = this.blendData(shortTerm, mediumTerm, 0.7).slice(0, 10);
-      } else if (i <= 6) {
-        // Last 2-6 months - use medium term data
-        data = mediumTerm.slice(0, 10);
-      } else {
-        // 6+ months ago - blend medium and long term
-        data = this.blendData(mediumTerm, longTerm, 0.3).slice(0, 10);
-      }
-      
-      months.push({ month: monthName, data });
-    }
-    
-    return months;
-  }
-
-  private static blendData<T extends { name: string }>(primary: T[], secondary: T[], primaryWeight: number): T[] {
-    const blended = [...primary];
-    const secondaryWeight = 1 - primaryWeight;
-    
-    // Add some variation by including items from secondary list
-    secondary.forEach((item, index) => {
-      if (Math.random() < secondaryWeight && index < blended.length / 2) {
-        // Replace some items with secondary data for variation
-        const replaceIndex = Math.floor(Math.random() * Math.min(blended.length, 5));
-        if (!blended.some(b => b.name === item.name)) {
-          blended[replaceIndex] = item;
-        }
-      }
-    });
-    
-    return blended;
-  }
 
   static async getAudioFeatures(trackIds: string[]): Promise<SpotifyAudioFeatures[]> {
     const ids = trackIds.join(',');

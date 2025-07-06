@@ -11,6 +11,7 @@ function App() {
   const [user, setUser] = useState<any>(null)
   const [recentTracks, setRecentTracks] = useState<SpotifyTrack[]>([])
   const [topTracks, setTopTracks] = useState<SpotifyTrack[]>([])
+  const [allTimeRangeData, setAllTimeRangeData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
   const [activeTab, setActiveTab] = useState<'recent' | 'top' | 'analytics'>('recent')
@@ -29,6 +30,30 @@ function App() {
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([name, count]) => ({ name, count }))
+  }
+
+  // Helper function to get track's peak time period
+  const getTrackPeakPeriod = (track: SpotifyTrack) => {
+    if (!allTimeRangeData) return null
+    
+    const shortTermRank = allTimeRangeData.tracks.short_term.findIndex((t: SpotifyTrack) => t.id === track.id)
+    const mediumTermRank = allTimeRangeData.tracks.medium_term.findIndex((t: SpotifyTrack) => t.id === track.id)
+    const longTermRank = allTimeRangeData.tracks.long_term.findIndex((t: SpotifyTrack) => t.id === track.id)
+    
+    // Find the best (lowest) rank
+    const ranks = [
+      { period: 'Last 4 weeks', rank: shortTermRank >= 0 ? shortTermRank + 1 : null },
+      { period: 'Last 6 months', rank: mediumTermRank >= 0 ? mediumTermRank + 1 : null },
+      { period: 'All time', rank: longTermRank >= 0 ? longTermRank + 1 : null }
+    ].filter(r => r.rank !== null)
+    
+    if (ranks.length === 0) return null
+    
+    const bestRank = ranks.reduce((best, current) => 
+      current.rank! < best.rank! ? current : best
+    )
+    
+    return bestRank
   }
 
   useEffect(() => {
@@ -80,8 +105,14 @@ function App() {
         setUser(userData)
       }
       
-      const tracks = await SpotifyApi.getTopTracks('long_term', 20)
+      // Load both main tracks and all time range data
+      const [tracks, timeRangeData] = await Promise.all([
+        SpotifyApi.getTopTracks('long_term', 20),
+        SpotifyApi.getAllTimeRangeData()
+      ])
+      
       setTopTracks(tracks)
+      setAllTimeRangeData(timeRangeData)
       setActiveTab('top')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load top tracks')
@@ -406,6 +437,14 @@ function App() {
                         <p style={{ margin: '0', color: '#999', fontSize: '14px' }}>
                           Album: {track.album.name} • {Math.floor(track.duration_ms / 60000)}:{String(Math.floor((track.duration_ms % 60000) / 1000)).padStart(2, '0')}
                         </p>
+                        {(() => {
+                          const peakInfo = getTrackPeakPeriod(track)
+                          return peakInfo ? (
+                            <p style={{ margin: '5px 0 0 0', color: '#1db954', fontSize: '12px', fontWeight: 'bold' }}>
+                              🔥 Peak: #{peakInfo.rank} in {peakInfo.period}
+                            </p>
+                          ) : null
+                        })()}
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
                           <button
                             onClick={() => {
@@ -450,7 +489,8 @@ function App() {
             {activeTab === 'analytics' && (
               <ListeningAnalytics 
                 recentTracks={recentTracks} 
-                topTracks={topTracks} 
+                topTracks={topTracks}
+                allTimeRangeData={allTimeRangeData}
               />
             )}
           </div>
