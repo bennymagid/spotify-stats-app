@@ -80,7 +80,7 @@ function App() {
         setUser(userData)
       }
       
-      const tracks = await SpotifyApi.getTopTracks('medium_term', 20)
+      const tracks = await SpotifyApi.getTopTracks('long_term', 20)
       setTopTracks(tracks)
       setActiveTab('top')
     } catch (err) {
@@ -299,7 +299,10 @@ function App() {
                         </p>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
                           <button
-                            onClick={() => setSelectedTrackUri(`spotify:track:${track.id}`)}
+                            onClick={() => {
+                              const trackUri = `spotify:track:${track.id}`;
+                              setSelectedTrackUri(trackUri);
+                            }}
                             style={{
                               backgroundColor: '#1db954',
                               color: 'white',
@@ -339,7 +342,7 @@ function App() {
               <div>
                 <h3>Your Top Tracks</h3>
                 <p style={{ color: '#666', marginBottom: '20px' }}>
-                  Your most played tracks over the last 6 months
+                  Your most played tracks of all time
                 </p>
                 
                 {/* Artist Stats for Top Tracks */}
@@ -405,7 +408,10 @@ function App() {
                         </p>
                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '8px' }}>
                           <button
-                            onClick={() => setSelectedTrackUri(`spotify:track:${track.id}`)}
+                            onClick={() => {
+                              const trackUri = `spotify:track:${track.id}`;
+                              setSelectedTrackUri(trackUri);
+                            }}
                             style={{
                               backgroundColor: '#1db954',
                               color: 'white',

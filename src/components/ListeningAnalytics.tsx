@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import type { SpotifyTrack } from '../services/spotifyApi';
+import { useMemo, useState, useEffect } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { SpotifyApi, type SpotifyTrack, type SpotifyArtist } from '../services/spotifyApi';
 
 interface ListeningAnalyticsProps {
   recentTracks: SpotifyTrack[];
@@ -9,82 +9,112 @@ interface ListeningAnalyticsProps {
 
 const COLORS = ['#1db954', '#1ed760', '#1aa34a', '#158c3d', '#0f6930'];
 
+interface TimeRangeData {
+  short_term: { tracks: SpotifyTrack[]; artists: SpotifyArtist[] };
+  medium_term: { tracks: SpotifyTrack[]; artists: SpotifyArtist[] };
+  long_term: { tracks: SpotifyTrack[]; artists: SpotifyArtist[] };
+}
+
 export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({ 
   recentTracks, 
   topTracks 
 }) => {
-  const artistAnalytics = useMemo(() => {
-    const recentArtists = recentTracks.reduce((acc, track) => {
-      track.artists.forEach(artist => {
-        acc[artist.name] = (acc[artist.name] || 0) + 1;
-      });
-      return acc;
-    }, {} as Record<string, number>);
+  const [timeRangeData, setTimeRangeData] = useState<TimeRangeData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-    const topArtists = topTracks.reduce((acc, track) => {
-      track.artists.forEach(artist => {
-        acc[artist.name] = (acc[artist.name] || 0) + 1;
-      });
-      return acc;
-    }, {} as Record<string, number>);
-
-    const combined = Object.entries(recentArtists)
-      .map(([name, recentCount]) => ({
-        name,
-        recent: recentCount,
-        allTime: topArtists[name] || 0,
-      }))
-      .sort((a, b) => b.recent - a.recent)
-      .slice(0, 10);
-
-    return combined;
-  }, [recentTracks, topTracks]);
-
-  const genreData = useMemo(() => {
-    // Simple genre estimation based on track/artist patterns
-    const genres: Record<string, number> = {};
-    
-    [...recentTracks, ...topTracks].forEach(track => {
-      // This is a simplified genre detection - in reality you'd need more sophisticated analysis
-      const trackName = track.name.toLowerCase();
-      const artistName = track.artists[0]?.name.toLowerCase() || '';
+  // Load all time range data for analytics
+  useEffect(() => {
+    const loadTimeRangeData = async () => {
+      if (topTracks.length === 0) return;
       
-      if (trackName.includes('remix') || trackName.includes('mix')) {
-        genres['Electronic/Dance'] = (genres['Electronic/Dance'] || 0) + 1;
-      } else if (artistName.includes('hip') || trackName.includes('rap')) {
-        genres['Hip Hop/Rap'] = (genres['Hip Hop/Rap'] || 0) + 1;
-      } else if (trackName.includes('acoustic') || trackName.includes('folk')) {
-        genres['Folk/Acoustic'] = (genres['Folk/Acoustic'] || 0) + 1;
-      } else if (trackName.includes('rock') || artistName.includes('rock')) {
-        genres['Rock'] = (genres['Rock'] || 0) + 1;
-      } else {
-        genres['Pop/Other'] = (genres['Pop/Other'] || 0) + 1;
+      setLoading(true);
+      try {
+        const data = await SpotifyApi.getAllTimeRangeData();
+        setTimeRangeData({
+          short_term: { tracks: data.tracks.short_term, artists: data.artists.short_term },
+          medium_term: { tracks: data.tracks.medium_term, artists: data.artists.medium_term },
+          long_term: { tracks: data.tracks.long_term, artists: data.artists.long_term }
+        });
+      } catch (error) {
+        console.error('Error loading time range data:', error);
+      } finally {
+        setLoading(false);
       }
-    });
-
-    return Object.entries(genres)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-  }, [recentTracks, topTracks]);
-
-  const trackLengthData = useMemo(() => {
-    const buckets = {
-      'Short (< 3 min)': 0,
-      'Medium (3-4 min)': 0,
-      'Long (4-5 min)': 0,
-      'Very Long (> 5 min)': 0,
     };
 
-    [...recentTracks, ...topTracks].forEach(track => {
-      const minutes = track.duration_ms / 60000;
-      if (minutes < 3) buckets['Short (< 3 min)']++;
-      else if (minutes < 4) buckets['Medium (3-4 min)']++;
-      else if (minutes < 5) buckets['Long (4-5 min)']++;
-      else buckets['Very Long (> 5 min)']++;
-    });
+    loadTimeRangeData();
+  }, [topTracks]);
 
-    return Object.entries(buckets).map(([name, value]) => ({ name, value }));
-  }, [recentTracks, topTracks]);
+  // Top artists over time evolution
+  const artistsOverTimeData = useMemo(() => {
+    if (!timeRangeData) return [];
+
+    const periods = [
+      { name: 'Last 4 weeks', data: timeRangeData.short_term.artists },
+      { name: 'Last 6 months', data: timeRangeData.medium_term.artists },
+      { name: 'All time', data: timeRangeData.long_term.artists }
+    ];
+
+    // Get top 5 artists overall
+    const allArtists = [...timeRangeData.long_term.artists.slice(0, 5)];
+    
+    return periods.map(period => {
+      const periodData: any = { period: period.name };
+      allArtists.forEach((artist) => {
+        const artistRank = period.data.findIndex(a => a.name === artist.name);
+        periodData[artist.name] = artistRank >= 0 ? artistRank + 1 : null;
+      });
+      return periodData;
+    });
+  }, [timeRangeData]);
+
+  // Top genres over time (using artist genres)
+  const genresOverTimeData = useMemo(() => {
+    if (!timeRangeData) return [];
+
+    const periods = [
+      { name: 'Last 4 weeks', data: timeRangeData.short_term.artists },
+      { name: 'Last 6 months', data: timeRangeData.medium_term.artists },
+      { name: 'All time', data: timeRangeData.long_term.artists }
+    ];
+
+    // Get top 5 genres from all artists
+    const allGenres = new Set<string>();
+    timeRangeData.long_term.artists.forEach(artist => {
+      artist.genres.slice(0, 2).forEach(genre => allGenres.add(genre));
+    });
+    const topGenres = Array.from(allGenres).slice(0, 5);
+
+    return periods.map(period => {
+      const periodData: any = { period: period.name };
+      topGenres.forEach(genre => {
+        const count = period.data.reduce((acc, artist) => {
+          return acc + (artist.genres.includes(genre) ? 1 : 0);
+        }, 0);
+        periodData[genre] = count;
+      });
+      return periodData;
+    });
+  }, [timeRangeData]);
+
+  // Minutes listened over time
+  const minutesListenedData = useMemo(() => {
+    if (!timeRangeData) return [];
+
+    const periods = [
+      { name: 'Last 4 weeks', tracks: timeRangeData.short_term.tracks },
+      { name: 'Last 6 months', tracks: timeRangeData.medium_term.tracks },
+      { name: 'All time', tracks: timeRangeData.long_term.tracks }
+    ];
+
+    return periods.map(period => {
+      const totalMinutes = period.tracks.reduce((acc, track) => acc + track.duration_ms, 0) / 60000;
+      return {
+        period: period.name,
+        minutes: Math.round(totalMinutes)
+      };
+    });
+  }, [timeRangeData]);
 
   if (recentTracks.length === 0 && topTracks.length === 0) {
     return (
@@ -94,79 +124,87 @@ export const ListeningAnalytics: React.FC<ListeningAnalyticsProps> = ({
     );
   }
 
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+        <p>📊 Loading advanced analytics...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: '20px' }}>
       <h2>🎵 Your Listening Analytics</h2>
       
-      {/* Artist Comparison */}
+      {/* Top Genres Over Time */}
       <div style={{ marginBottom: '40px' }}>
-        <h3>Artist Listening Patterns</h3>
+        <h3>Top Genres Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          Comparing recent listening vs. all-time favorites
+          How your music taste evolves across different time periods
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
-            <BarChart data={artistAnalytics}>
+            <LineChart data={genresOverTimeData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                fontSize={12}
-              />
+              <XAxis dataKey="period" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="recent" fill="#1db954" name="Recent Plays" />
-              <Bar dataKey="allTime" fill="#1aa34a" name="All-Time Favorites" />
-            </BarChart>
+              {genresOverTimeData.length > 0 && Object.keys(genresOverTimeData[0]).filter(key => key !== 'period').map((genre, index) => (
+                <Line 
+                  key={genre}
+                  type="monotone" 
+                  dataKey={genre} 
+                  stroke={COLORS[index % COLORS.length]}
+                  strokeWidth={2}
+                />
+              ))}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Genre Distribution */}
+      {/* Top Artists Over Time */}
       <div style={{ marginBottom: '40px' }}>
-        <h3>Music Genre Distribution</h3>
+        <h3>Top Artists Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          Estimated genres based on track and artist names
+          Artist ranking evolution (lower is better)
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
-            <PieChart>
-              <Pie
-                data={genreData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {genreData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
+            <LineChart data={artistsOverTimeData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="period" />
+              <YAxis reversed domain={[1, 50]} />
               <Tooltip />
-            </PieChart>
+              {artistsOverTimeData.length > 0 && Object.keys(artistsOverTimeData[0]).filter(key => key !== 'period').map((artist, index) => (
+                <Line 
+                  key={artist}
+                  type="monotone" 
+                  dataKey={artist} 
+                  stroke={COLORS[index % COLORS.length]}
+                  strokeWidth={2}
+                  connectNulls={false}
+                />
+              ))}
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Track Length Preferences */}
+      {/* Minutes Listened Over Time */}
       <div style={{ marginBottom: '40px' }}>
-        <h3>Track Length Preferences</h3>
+        <h3>Minutes Listened Over Time</h3>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          How long are the songs you listen to?
+          Your listening volume across different time periods
         </p>
         <div style={{ height: '300px', width: '100%' }}>
           <ResponsiveContainer>
-            <BarChart data={trackLengthData}>
+            <BarChart data={minutesListenedData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis dataKey="period" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="value" fill="#1db954" />
+              <Bar dataKey="minutes" fill="#1db954" />
             </BarChart>
           </ResponsiveContainer>
         </div>

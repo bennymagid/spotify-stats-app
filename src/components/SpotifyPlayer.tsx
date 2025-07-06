@@ -138,6 +138,13 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
     };
   }, [isPaused, player]);
 
+  // Auto-play when trackUri changes
+  useEffect(() => {
+    if (trackUri && deviceId && isReady && !needsReauth) {
+      playTrack(trackUri);
+    }
+  }, [trackUri, deviceId, isReady, needsReauth]);
+
   const playTrack = async (uri: string) => {
     if (!deviceId || !isReady) return;
 
@@ -306,25 +313,6 @@ export const SpotifyPlayerComponent: React.FC<SpotifyPlayerProps> = ({
           )}
         </div>
       </div>
-      
-      {trackUri && (
-        <div style={{ marginTop: '10px' }}>
-          <button
-            onClick={() => playTrack(trackUri)}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              border: '1px solid rgba(255,255,255,0.3)',
-              padding: '8px 16px',
-              borderRadius: '20px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Play Selected Track
-          </button>
-        </div>
-      )}
     </div>
   );
 };

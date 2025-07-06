@@ -23,6 +23,15 @@ export interface SpotifyTrack {
   external_urls: { spotify: string };
 }
 
+export interface SpotifyArtist {
+  id: string;
+  name: string;
+  genres: string[];
+  images: Array<{ url: string }>;
+  popularity: number;
+  external_urls: { spotify: string };
+}
+
 export interface SpotifyAudioFeatures {
   id: string;
   danceability: number;
@@ -109,13 +118,61 @@ export class SpotifyApi {
   }
 
   static async getTopTracks(
-    timeRange: 'short_term' | 'medium_term' | 'long_term' = 'medium_term',
+    timeRange: 'short_term' | 'medium_term' | 'long_term' = 'long_term',
     limit: number = 20
   ): Promise<SpotifyTrack[]> {
     const response = await this.makeRequest<TopTracksResponse>(
       `/me/top/tracks?time_range=${timeRange}&limit=${limit}`
     );
     return response.items;
+  }
+
+  static async getTopArtists(
+    timeRange: 'short_term' | 'medium_term' | 'long_term' = 'long_term',
+    limit: number = 20
+  ): Promise<SpotifyArtist[]> {
+    const response = await this.makeRequest<{ items: SpotifyArtist[] }>(
+      `/me/top/artists?time_range=${timeRange}&limit=${limit}`
+    );
+    return response.items;
+  }
+
+  static async getAllTimeRangeData(): Promise<{
+    tracks: {
+      short_term: SpotifyTrack[];
+      medium_term: SpotifyTrack[];
+      long_term: SpotifyTrack[];
+    };
+    artists: {
+      short_term: SpotifyArtist[];
+      medium_term: SpotifyArtist[];
+      long_term: SpotifyArtist[];
+    };
+  }> {
+    const [
+      shortTermTracks, mediumTermTracks, longTermTracks,
+      shortTermArtists, mediumTermArtists, longTermArtists
+    ] = await Promise.all([
+      this.getTopTracks('short_term', 50),
+      this.getTopTracks('medium_term', 50),
+      this.getTopTracks('long_term', 50),
+      this.getTopArtists('short_term', 50),
+      this.getTopArtists('medium_term', 50),
+      this.getTopArtists('long_term', 50),
+    ]);
+
+    return {
+      tracks: {
+        short_term: shortTermTracks,
+        medium_term: mediumTermTracks,
+        long_term: longTermTracks,
+      },
+      artists: {
+        short_term: shortTermArtists,
+        medium_term: mediumTermArtists,
+        long_term: longTermArtists,
+      },
+    };
   }
 
   static async getAudioFeatures(trackIds: string[]): Promise<SpotifyAudioFeatures[]> {
